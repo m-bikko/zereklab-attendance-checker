@@ -86,8 +86,20 @@ export async function createSubject(prevState: any, formData: FormData) {
                 const [startHour, startMinute] = rule.startTime.split(':').map(Number);
                 const [endHour, endMinute] = rule.endTime.split(':').map(Number);
 
-                const lessonStart = setMinutes(setHours(new Date(cursorDate), startHour), startMinute);
-                const lessonEnd = setMinutes(setHours(new Date(cursorDate), endHour), endMinute);
+                // Create base date from cursor
+                const lessonStart = new Date(cursorDate);
+                const lessonEnd = new Date(cursorDate);
+
+                // Set time. logic:
+                // Server (UTC) sets hours to X. E.g. 14:00 -> 14:00 UTC.
+                // We want 14:00 Local (UTC+5). That is 09:00 UTC.
+                // So we need to set (14 - 5) hours.
+                // We assume input rules are in "Local School Time" (UTC+5).
+
+                const TIMEZONE_OFFSET = 5;
+
+                lessonStart.setUTCHours(startHour - TIMEZONE_OFFSET, startMinute, 0, 0);
+                lessonEnd.setUTCHours(endHour - TIMEZONE_OFFSET, endMinute, 0, 0);
 
                 lessons.push({
                     subjectId,
