@@ -1,0 +1,133 @@
+"use server";
+
+import clientPromise, { dbName } from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { addDays, format, getDay, isAfter, isBefore, parse, setHours, setMinutes, startOfDay } from "date-fns";
+
+export interface ScheduleRule {
+    dayOfWeek: number; // 0 (Sun) - 6 (Sat)
+    startTime: string; // "HH:mm"
+    endTime: string; // "HH:mm"
+}
+
+export interface Subject {
+    _id?: string;
+    name: string;
+    teacherId: string;
+    studentIds: string[];
+    schedule: ScheduleRule[];
+    periodicityEndDate: Date;
+    startDate: Date;
+    active: boolean;
+}
+
+export interface Lesson {
+    _id?: string;
+    subjectId: string;
+    teacherId: string;
+    studentIds: string[];
+    startTime: Date;
+    endTime: Date;
+    status: "scheduled" | "completed" | "cancelled";
+}
+
+export async function createSubject(prevState: any, formData: FormData) {
+    const rawData = Object.fromEntries(formData.entries());
+    const name = rawData.name as string;
+    const teacherId = rawData.teacherId as string;
+    const startDateStr = rawData.startDate as string;
+    const periodicityEndDateStr = rawData.periodicityEndDate as string;
+
+    // Parse complex JSON fields
+    const studentIds = JSON.parse(rawData.studentIds as string) as string[];
+    const schedule = JSON.parse(rawData.schedule as string) as ScheduleRule[];
+
+    if (!name || !teacherId || studentIds.length === 0 || schedule.length === 0 || !periodicityEndDateStr || !startDateStr) {
+        return { message: "All fields are required", error: true };
+    }
+
+    try {
+        const client = await clientPromise;
+        const db = client.db(dbName);
+
+        const startDate = startOfDay(new Date(startDateStr));
+        const periodicityEndDate = startOfDay(new Date(periodicityEndDateStr));
+
+        if (isAfter(startDate, periodicityEndDate)) {
+            return { message: "Start Date cannot be after End Date", error: true };
+        }
+
+        // 1. Create Subject
+        const subjectDoc = {
+            name,
+            teacherId,
+            studentIds,
+            schedule,
+            startDate,
+            periodicityEndDate,
+            active: true,
+            createdAt: new Date(),
+        };
+
+        const result = await db.collection("subjects").insertOne(subjectDoc);
+        const subjectId = result.insertedId.toString();
+
+        // 2. Generate Lessons
+        const lessons: any[] = [];
+        let cursorDate = new Date(startDate);
+
+        while (isBefore(cursorDate, addDays(periodicityEndDate, 1))) {
+            const dayOfWeek = getDay(cursorDate);
+
+            // Find rules for this day
+            const rules = schedule.filter(r => r.dayOfWeek === dayOfWeek);
+
+            rules.forEach(rule => {
+                const [startHour, startMinute] = rule.startTime.split(':').map(Number);
+                const [endHour, endMinute] = rule.endTime.split(':').map(Number);
+
+                const lessonStart = setMinutes(setHours(new Date(cursorDate), startHour), startMinute);
+                const lessonEnd = setMinutes(setHours(new Date(cursorDate), endHour), endMinute);
+
+                lessons.push({
+                    subjectId,
+                    teacherId,
+                    studentIds,
+                    startTime: lessonStart,
+                    endTime: lessonEnd,
+                    status: "scheduled",
+                });
+            });
+
+            cursorDate = addDays(cursorDate, 1);
+        }
+
+        if (lessons.length > 0) {
+            await db.collection("lessons").insertMany(lessons);
+        }
+
+        revalidatePath("/subjects");
+        revalidatePath("/"); // Update calendar
+        return { message: "Subject and schedule created successfully", error: false };
+
+    } catch (e) {
+        console.error(e);
+        return { message: "Failed to create subject", error: true };
+    }
+}
+
+export async function getSubjects() {
+    const client = await clientPromise;
+    const db = client.db(dbName);
+    const subjects = await db.collection("subjects").find({}).sort({ createdAt: -1 }).toArray();
+
+    // Need to aggregate with Teachers to get names for display if needed, 
+    // but for now just returning raw subject data with IDs
+    return subjects.map(s => ({
+        ...s,
+        _id: s._id.toString(),
+        // Serializing dates
+        startDate: s.startDate.toISOString(),
+        periodicityEndDate: s.periodicityEndDate.toISOString(),
+    }));
+}
