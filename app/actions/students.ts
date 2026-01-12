@@ -44,3 +44,43 @@ export async function getStudents(): Promise<Student[]> {
         _id: s._id.toString(),
     })) as unknown as Student[];
 }
+
+export async function updateStudent(id: string, prevState: any, formData: FormData) {
+    const fullName = formData.get("fullName") as string;
+
+    if (!fullName) {
+        return { message: "Full Name is required", error: true };
+    }
+
+    try {
+        const client = await clientPromise;
+        const db = client.db(dbName);
+        const { ObjectId } = await import("mongodb");
+
+        await db.collection("students").updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { fullName } }
+        );
+
+        revalidatePath("/admin/students");
+        return { message: "Student updated successfully", error: false };
+    } catch (e) {
+        console.error(e);
+        return { message: "Failed to update student", error: true };
+    }
+}
+
+export async function deleteStudent(id: string) {
+    try {
+        const client = await clientPromise;
+        const db = client.db(dbName);
+        const { ObjectId } = await import("mongodb");
+
+        await db.collection("students").deleteOne({ _id: new ObjectId(id) });
+        revalidatePath("/admin/students");
+        return { message: "Student deleted successfully", error: false };
+    } catch (e) {
+        console.error(e);
+        return { message: "Failed to delete student", error: true };
+    }
+}

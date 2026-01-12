@@ -50,3 +50,50 @@ export async function getTeachers(): Promise<Teacher[]> {
         _id: t._id.toString(),
     })) as unknown as Teacher[];
 }
+
+export async function updateTeacher(id: string, prevState: any, formData: FormData) {
+    const fullName = formData.get("fullName") as string;
+    const phone = formData.get("phone") as string;
+    const password = formData.get("password") as string; // Optional update
+
+    if (!fullName || !phone) {
+        return { message: "Full Name and Phone are required", error: true };
+    }
+
+    try {
+        const client = await clientPromise;
+        const db = client.db(dbName);
+        const { ObjectId } = await import("mongodb");
+
+        const updateData: any = { fullName, phone };
+        if (password && password.trim() !== "") {
+            updateData.password = password;
+        }
+
+        await db.collection("teachers").updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateData }
+        );
+
+        revalidatePath("/admin/teachers");
+        return { message: "Teacher updated successfully", error: false };
+    } catch (e) {
+        console.error(e);
+        return { message: "Failed to update teacher", error: true };
+    }
+}
+
+export async function deleteTeacher(id: string) {
+    try {
+        const client = await clientPromise;
+        const db = client.db(dbName);
+        const { ObjectId } = await import("mongodb");
+
+        await db.collection("teachers").deleteOne({ _id: new ObjectId(id) });
+        revalidatePath("/admin/teachers");
+        return { message: "Teacher deleted successfully", error: false };
+    } catch (e) {
+        console.error(e);
+        return { message: "Failed to delete teacher", error: true };
+    }
+}

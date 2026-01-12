@@ -143,3 +143,89 @@ export async function getSubjects() {
         periodicityEndDate: s.periodicityEndDate.toISOString(),
     }));
 }
+
+export async function deleteSubject(id: string) {
+    try {
+        const client = await clientPromise;
+        const db = client.db(dbName);
+        const { ObjectId } = await import("mongodb");
+
+        // Delete subject
+        await db.collection("subjects").deleteOne({ _id: new ObjectId(id) });
+
+        // Delete all future lessons? Or all lessons?
+        // Usually, we want to keep history. But if "Delete Entity", user expects it gone.
+        // Let's delete future scheduled lessons.
+        const today = startOfDay(new Date());
+        await db.collection("lessons").deleteMany({
+            subjectId: id,
+            startTime: { $gte: today }
+        });
+
+        // Or maybe just mark as inactive? User asked for "Delete". 
+        // I will delete the subject doc, which breaks the link effectively.
+        // And clean up future lessons to avoid clutter.
+
+        revalidatePath("/admin/subjects");
+        return { message: "Предмет удален", error: false };
+    } catch (e) {
+        console.error(e);
+        return { message: "Ошибка при удалении предмета", error: true };
+    }
+}
+
+export async function updateSubject(id: string, prevState: any, formData: FormData) {
+    const rawData = Object.fromEntries(formData.entries());
+    const name = rawData.name as string;
+    const teacherId = rawData.teacherId as string;
+
+    // For now, complicated to update schedule/students and regenerate lessons seamlessly without massive logic.
+    // So we will only allow updating Name, Teacher, and Active status.
+    // If they want to change students/schedule, they should create a new subject or we need a specific "Regenerate" flow.
+    // But let's try to support students update at least (it affects future lessons if we were generating them on fly, but we pre-generated).
+    // Pre-generated lessons have studentIds in them.
+
+    // Simplest approach: Update Subject Doc. 
+    // AND Update FUTURE lessons with new teacher/students.
+
+    const studentIds = JSON.parse(rawData.studentIds as string) as string[];
+
+    try {
+        const client = await clientPromise;
+        const db = client.db(dbName);
+        const { ObjectId } = await import("mongodb");
+
+        await db.collection("subjects").updateOne(
+            { _id: new ObjectId(id) },
+            {
+                $set: {
+                    name,
+                    teacherId,
+                    studentIds
+                }
+            }
+        );
+
+        // Update future lessons to reflect new teacher/students
+        const today = startOfDay(new Date());
+        await db.collection("lessons").updateMany(
+            {
+                subjectId: id,
+                startTime: { $gte: today },
+                status: "scheduled"
+            },
+            {
+                $set: {
+                    teacherId,
+                    studentIds
+                }
+            }
+        );
+
+        revalidatePath("/admin/subjects");
+        return { message: "Предмет обновлен", error: false };
+    } catch (e) {
+        console.error(e);
+        return { message: "Ошибка при обновлении предмета", error: true };
+    }
+}

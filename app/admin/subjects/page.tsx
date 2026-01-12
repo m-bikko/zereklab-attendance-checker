@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { getSubjects, createSubject, Subject, ScheduleRule } from "@/app/actions/subjects";
+import { useActionState, useEffect, useState, startTransition } from "react";
+import { getSubjects, createSubject, updateSubject, deleteSubject, Subject, ScheduleRule } from "@/app/actions/subjects";
 import { getTeachers, Teacher } from "@/app/actions/teachers";
 import { getStudents, Student } from "@/app/actions/students";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, CalendarIcon, Trash2 } from "lucide-react";
+import { Plus, CalendarIcon, Trash2, Pencil, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -109,6 +109,10 @@ export default function SubjectsPage() {
         );
     };
 
+    const refreshSubjects = () => {
+        getSubjects().then(res => setSubjects(res as any));
+    };
+
     return (
         <div className="p-4 md:p-8 max-w-4xl mx-auto pb-24">
             <div className="flex justify-between items-center mb-6">
@@ -143,9 +147,6 @@ export default function SubjectsPage() {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                {/* Hidden input for form submission if needed, but Select name handles it? 
-                    Actually Shadcn Select doesn't inject native input automatically in all versions. 
-                    Safer to use a hidden input. */}
                                 <input type="hidden" name="teacherId" value={selectedTeacher} />
                             </div>
 
@@ -263,22 +264,7 @@ export default function SubjectsPage() {
 
             <div className="grid gap-4">
                 {subjects.map((subject) => (
-                    <Card key={subject._id}>
-                        <CardHeader>
-                            <CardTitle className="flex justify-between items-center">
-                                <span>{subject.name}</span>
-                                <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-1 rounded">
-                                    {subjects?.length > 0 ? "Активен" : "Неактивен"}
-                                </span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-sm text-muted-foreground">
-                                <p>Расписание: {subject.schedule.map(s => `${DAYS[s.dayOfWeek].label.substring(0, 3)} ${s.startTime}`).join(", ")}</p>
-                                <p>Студенты: {subject.studentIds.length} зачислено</p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <SubjectItem key={subject._id} subject={subject} teachers={teachers} students={students} onUpdate={refreshSubjects} />
                 ))}
                 {subjects.length === 0 && (
                     <p className="text-muted-foreground text-center py-10">
@@ -287,5 +273,144 @@ export default function SubjectsPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+function SubjectItem({ subject, teachers, students, onUpdate }: { subject: Subject; teachers: Teacher[]; students: Student[]; onUpdate: () => void }) {
+    const [open, setOpen] = useState(false);
+    const updateAction = updateSubject.bind(null, subject._id!);
+    const [state, formAction, isPending] = useActionState(updateAction, initialState);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // Initial State
+    const [selectedTeacher, setSelectedTeacher] = useState<string>(subject.teacherId);
+    const [selectedStudents, setSelectedStudents] = useState<string[]>(subject.studentIds || []);
+
+    const toggleStudent = (id: string) => {
+        setSelectedStudents((prev) =>
+            prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+        );
+    };
+
+    useEffect(() => {
+        if (state.message && !state.error) {
+            setOpen(false);
+            onUpdate();
+        }
+    }, [state, onUpdate]);
+
+    const handleDelete = async () => {
+        if (!confirm("Вы уверены, что хотите удалить этот предмет? Все будущие уроки будут удалены.")) return;
+        setIsDeleting(true);
+        await deleteSubject(subject._id!);
+        onUpdate();
+        setIsDeleting(false);
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                        <span>{subject.name}</span>
+                        <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-1 rounded w-fit mt-1">
+                            {teachers.find(t => t._id === subject.teacherId)?.fullName}
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Dialog open={open} onOpenChange={setOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+                                <DialogHeader>
+                                    <DialogTitle>Редактировать предмет</DialogTitle>
+                                </DialogHeader>
+                                <form action={formAction} className="space-y-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="name">Название предмета</Label>
+                                        <Input id="name" name="name" defaultValue={subject.name} required />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label>Учитель</Label>
+                                        <Select name="teacherId" defaultValue={selectedTeacher} onValueChange={setSelectedTeacher} required>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Выберите учителя" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {teachers.map((t) => (
+                                                    <SelectItem key={t._id} value={t._id!}>
+                                                        {t.fullName}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <input type="hidden" name="teacherId" value={selectedTeacher} />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label>Студенты</Label>
+                                        <ScrollArea className="h-[150px] w-full border rounded-md p-2">
+                                            {students.map((student) => (
+                                                <div key={student._id} className="flex items-center space-x-2 mb-2">
+                                                    <Checkbox
+                                                        id={`edit-sub-st-${subject._id}-${student._id}`}
+                                                        checked={selectedStudents.includes(student._id!)}
+                                                        onCheckedChange={() => toggleStudent(student._id!)}
+                                                    />
+                                                    <label
+                                                        htmlFor={`edit-sub-st-${subject._id}-${student._id}`}
+                                                        className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                                    >
+                                                        {student.fullName}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </ScrollArea>
+                                        <input type="hidden" name="studentIds" value={JSON.stringify(selectedStudents)} />
+                                    </div>
+
+                                    <div className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
+                                        <p>Примечание: Изменение расписания в режиме редактирования пока недоступно. Для изменения расписания создайте новый предмет.</p>
+                                    </div>
+
+                                    {state.message && (
+                                        <p className={cn("text-sm", state.error ? "text-red-500" : "text-green-500")}>
+                                            {state.message}
+                                        </p>
+                                    )}
+
+                                    <DialogFooter>
+                                        <Button type="submit" disabled={isPending}>
+                                            {isPending ? "Сохранение..." : "Сохранить"}
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
+
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-600"
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="text-sm text-muted-foreground">
+                    <p>Расписание: {subject.schedule.map(s => `${DAYS[s.dayOfWeek].label.substring(0, 3)} ${s.startTime}`).join(", ")}</p>
+                    <p>Студенты: {subject.studentIds.length} зачислено</p>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
