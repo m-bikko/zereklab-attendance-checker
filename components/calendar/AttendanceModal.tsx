@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { saveAttendance } from "@/app/actions/attendance";
+import { getVolunteers, Volunteer } from "@/app/actions/volunteers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,9 +36,15 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [attendanceMap, setAttendanceMap] = useState<Record<string, boolean>>({});
+    const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
+    const [selectedVolunteerIds, setSelectedVolunteerIds] = useState<string[]>([]);
 
     const [isEditing, setIsEditing] = useState(false);
     const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
+
+    useEffect(() => {
+        getVolunteers().then(setVolunteers);
+    }, []);
 
     useEffect(() => {
         if (lesson) {
@@ -48,10 +55,12 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
                 });
                 setAttendanceMap(map);
                 setExistingPhotos(lesson.photos || []);
+                setSelectedVolunteerIds(lesson.volunteerIds || []);
                 setIsEditing(false);
             } else {
                 setAttendanceMap({});
                 setExistingPhotos([]);
+                setSelectedVolunteerIds(lesson.volunteerIds || []);
                 setIsEditing(true);
             }
             // Clear previous previews
@@ -176,34 +185,8 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
                         </div>
                     ) : (
                         <form action={(formData) => {
-                            // We need to handle file input manually because we might have removed some from 'selectedFiles' state
-                            // But for simplicity with Server Actions + useActionState, the <input type="file" /> sends ALL selected files in that input.
-                            // But here we are building a custom list.
-                            // Browsers don't let you programmatically set file input value easily.
-                            // WORKAROUND: We append files to formData manually in client or just rely on the input.
-                            // BETTER: Since we want to allow removing specific *new* files, we can't easily do that with a single standard file input.
-                            // COMPROMISE for V1: Standard file input adds *more* files. You can't remove individual new ones from the input itself easily without DataTransfer hacks.
-                            // Let's try the DataTransfer approach to permit removal, OR just append everything to formData? 
-                            // "formAction" is bound to the form submit. We can intercept?
-
-                            // Actually, simpler: Just send the selectedFiles array? No, cannot pass File objects easily except via FormData.
-                            // We will rely on the input for now, but if I remove from preview, it won't remove from input unless I do the DataTransfer hack.
-
-                            // Let's implement DataTransfer hack for the "photos" input logic if possible, OR just hide the input and use a button to trigger it?
-                            // For speed and robustness: keep it simple. Allow adding. If they pick wrong, they can clear.
-                            // I will just use the input for NEW files. If they want to remove a new file they just selected, they can re-select.
-                            // BUT I will implement removal for EXISTING photos.
-
-                            // Wait, to support "previewUrl" we already read the files.
-                            // Let's use the DataTransfer trick to keep the input in sync if I render a list of "pending uploads".
-
-                            // Re-reading user request: "preview... in change too".
-
-                            // Let's just use the `formAction` directly from `useActionState` but wrap the submit?
-                            // No, `state` comes from `useActionState`.
-                            // Let's just append the existingPhotos JSON.
-
                             formData.set("existingPhotos", JSON.stringify(existingPhotos));
+                            formData.set("volunteerIds", JSON.stringify(selectedVolunteerIds));
 
                             // Handle new photos manually to support removal
                             formData.delete("photos");
@@ -217,7 +200,7 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
                             <input type="hidden" name="attendanceMap" value={JSON.stringify(attendanceMap)} />
 
                             <Label>Список студентов</Label>
-                            <ScrollArea className="h-[300px] border rounded p-2">
+                            <ScrollArea className="h-[220px] border rounded p-2">
                                 {enrolledStudents.map(student => (
                                     <div key={student._id}
                                         className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer"
@@ -233,6 +216,33 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
                                     </div>
                                 ))}
                             </ScrollArea>
+
+                            {/* Volunteers section */}
+                            {volunteers.length > 0 && (
+                                <div className="space-y-2">
+                                    <Label>Волонтеры урока</Label>
+                                    <div className="border rounded p-2 flex flex-wrap gap-2">
+                                        {volunteers.map(v => (
+                                            <label
+                                                key={v._id}
+                                                className="flex items-center gap-1.5 cursor-pointer text-sm"
+                                            >
+                                                <Checkbox
+                                                    checked={selectedVolunteerIds.includes(v._id!)}
+                                                    onCheckedChange={(checked) => {
+                                                        setSelectedVolunteerIds(prev =>
+                                                            checked
+                                                                ? [...prev, v._id!]
+                                                                : prev.filter(id => id !== v._id)
+                                                        );
+                                                    }}
+                                                />
+                                                {v.fullName}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-2">
                                 <Label htmlFor="photos">Фотографии</Label>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Users, GraduationCap, BookOpen, UserCircle, BarChart, Menu, LogOut } from "lucide-react";
+import { Calendar, Users, GraduationCap, BookOpen, UserCircle, BarChart, Menu, LogOut, UserCheck, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,8 @@ export function MobileNav() {
         { href: "/admin/teachers", label: "Учителя", icon: Users },
         { href: "/admin/students", label: "Студенты", icon: GraduationCap },
         { href: "/admin/parents", label: "Родители", icon: UserCircle },
+        { href: "/admin/homeroom-teachers", label: "Класс. руководители", icon: UserCheck },
+        { href: "/admin/volunteers", label: "Волонтеры", icon: Heart },
         { href: "/admin/analytics", label: "Аналитика", icon: BarChart },
     ];
 

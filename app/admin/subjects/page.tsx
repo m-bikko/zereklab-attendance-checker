@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState, startTransition } from "react";
 import { getSubjects, createSubject, updateSubject, deleteSubject, Subject, ScheduleRule } from "@/app/actions/subjects";
 import { getTeachers, Teacher } from "@/app/actions/teachers";
 import { getStudents, Student } from "@/app/actions/students";
+import { getVolunteers, Volunteer } from "@/app/actions/volunteers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +51,7 @@ export default function SubjectsPage() {
     const [subjects, setSubjects] = useState<Subject[]>([]);
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
+    const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
 
     const [open, setOpen] = useState(false);
     const [state, formAction, isPending] = useActionState(createSubject, initialState);
@@ -57,6 +59,7 @@ export default function SubjectsPage() {
     // Form State
     const [selectedTeacher, setSelectedTeacher] = useState<string>("");
     const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+    const [selectedVolunteers, setSelectedVolunteers] = useState<string[]>([]);
     const [schedule, setSchedule] = useState<ScheduleRule[]>([]);
     const [startDate, setStartDate] = useState<Date | undefined>(new Date());
     const [endDate, setEndDate] = useState<Date | undefined>();
@@ -67,11 +70,12 @@ export default function SubjectsPage() {
     const [tempEnd, setTempEnd] = useState("10:00");
 
     useEffect(() => {
-        Promise.all([getSubjects(), getTeachers(), getStudents()])
-            .then(([sub, teach, stud]) => {
+        Promise.all([getSubjects(), getTeachers(), getStudents(), getVolunteers()])
+            .then(([sub, teach, stud, vol]) => {
                 setSubjects(sub as any);
                 setTeachers(teach);
                 setStudents(stud);
+                setVolunteers(vol);
             });
     }, [state]);
 
@@ -81,6 +85,7 @@ export default function SubjectsPage() {
             // Reset form
             setSelectedTeacher("");
             setSelectedStudents([]);
+            setSelectedVolunteers([]);
             setSchedule([]);
             setEndDate(undefined);
         }
@@ -106,6 +111,12 @@ export default function SubjectsPage() {
     const toggleStudent = (id: string) => {
         setSelectedStudents((prev) =>
             prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+        );
+    };
+
+    const toggleVolunteer = (id: string) => {
+        setSelectedVolunteers((prev) =>
+            prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
         );
     };
 
@@ -170,6 +181,29 @@ export default function SubjectsPage() {
                                     ))}
                                 </ScrollArea>
                                 <input type="hidden" name="studentIds" value={JSON.stringify(selectedStudents)} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label>Волонтеры</Label>
+                                <ScrollArea className="h-[100px] w-full border rounded-md p-2">
+                                    {volunteers.map((v) => (
+                                        <div key={v._id} className="flex items-center space-x-2 mb-2">
+                                            <Checkbox
+                                                id={`vol-${v._id}`}
+                                                checked={selectedVolunteers.includes(v._id!)}
+                                                onCheckedChange={() => toggleVolunteer(v._id!)}
+                                            />
+                                            <label
+                                                htmlFor={`vol-${v._id}`}
+                                                className="text-sm leading-none"
+                                            >
+                                                {v.fullName}
+                                            </label>
+                                        </div>
+                                    ))}
+                                    {volunteers.length === 0 && <p className="text-xs text-muted-foreground">Нет волонтеров</p>}
+                                </ScrollArea>
+                                <input type="hidden" name="volunteerIds" value={JSON.stringify(selectedVolunteers)} />
                             </div>
 
                             <div className="space-y-2 border p-3 rounded-md">
@@ -264,7 +298,7 @@ export default function SubjectsPage() {
 
             <div className="grid gap-4">
                 {subjects.map((subject) => (
-                    <SubjectItem key={subject._id} subject={subject} teachers={teachers} students={students} onUpdate={refreshSubjects} />
+                    <SubjectItem key={subject._id} subject={subject} teachers={teachers} students={students} volunteers={volunteers} onUpdate={refreshSubjects} />
                 ))}
                 {subjects.length === 0 && (
                     <p className="text-muted-foreground text-center py-10">
@@ -276,7 +310,7 @@ export default function SubjectsPage() {
     );
 }
 
-function SubjectItem({ subject, teachers, students, onUpdate }: { subject: Subject; teachers: Teacher[]; students: Student[]; onUpdate: () => void }) {
+function SubjectItem({ subject, teachers, students, volunteers, onUpdate }: { subject: Subject; teachers: Teacher[]; students: Student[]; volunteers: Volunteer[]; onUpdate: () => void }) {
     const [open, setOpen] = useState(false);
     const updateAction = updateSubject.bind(null, subject._id!);
     const [state, formAction, isPending] = useActionState(updateAction, initialState);
@@ -285,10 +319,17 @@ function SubjectItem({ subject, teachers, students, onUpdate }: { subject: Subje
     // Initial State
     const [selectedTeacher, setSelectedTeacher] = useState<string>(subject.teacherId);
     const [selectedStudents, setSelectedStudents] = useState<string[]>(subject.studentIds || []);
+    const [selectedVolunteers, setSelectedVolunteers] = useState<string[]>(subject.volunteerIds || []);
 
     const toggleStudent = (id: string) => {
         setSelectedStudents((prev) =>
             prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+        );
+    };
+
+    const toggleVolunteer = (id: string) => {
+        setSelectedVolunteers((prev) =>
+            prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
         );
     };
 
@@ -374,6 +415,29 @@ function SubjectItem({ subject, teachers, students, onUpdate }: { subject: Subje
                                         <input type="hidden" name="studentIds" value={JSON.stringify(selectedStudents)} />
                                     </div>
 
+                                    <div className="grid gap-2">
+                                        <Label>Волонтеры</Label>
+                                        <ScrollArea className="h-[100px] w-full border rounded-md p-2">
+                                            {volunteers.map((v) => (
+                                                <div key={v._id} className="flex items-center space-x-2 mb-2">
+                                                    <Checkbox
+                                                        id={`edit-sub-vol-${subject._id}-${v._id}`}
+                                                        checked={selectedVolunteers.includes(v._id!)}
+                                                        onCheckedChange={() => toggleVolunteer(v._id!)}
+                                                    />
+                                                    <label
+                                                        htmlFor={`edit-sub-vol-${subject._id}-${v._id}`}
+                                                        className="text-sm leading-none"
+                                                    >
+                                                        {v.fullName}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                            {volunteers.length === 0 && <p className="text-xs text-muted-foreground">Нет волонтеров</p>}
+                                        </ScrollArea>
+                                        <input type="hidden" name="volunteerIds" value={JSON.stringify(selectedVolunteers)} />
+                                    </div>
+
                                     <div className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
                                         <p>Примечание: Изменение расписания в режиме редактирования пока недоступно. Для изменения расписания создайте новый предмет.</p>
                                     </div>
@@ -408,7 +472,8 @@ function SubjectItem({ subject, teachers, students, onUpdate }: { subject: Subje
             <CardContent>
                 <div className="text-sm text-muted-foreground">
                     <p>Расписание: {subject.schedule.map(s => `${DAYS[s.dayOfWeek].label.substring(0, 3)} ${s.startTime}`).join(", ")}</p>
-                    <p>Студенты: {subject.studentIds.length} зачислено</p>
+                    <p>Студенты: {subject.studentIds?.length || 0} зачислено</p>
+                    <p>Волонтеры: {subject.volunteerIds?.length || 0} прикреплено</p>
                 </div>
             </CardContent>
         </Card>

@@ -5,34 +5,33 @@ import { uploadImage } from "@/lib/cloudinary";
 import { revalidatePath } from "next/cache";
 import { ObjectId } from "mongodb";
 
-export async function saveAttendance(prevState: any, formData: FormData) {
+export async function saveAttendance(prevState: { message: string; error: boolean }, formData: FormData) {
     const lessonId = formData.get("lessonId") as string;
-    const studentIds = formData.getAll("studentId") as string[];
-    // In the form, we'll use checkboxes with value=studentId. If checked, they are present.
-    // Wait, better to have specific "present" status.
-    // Let's assume the form sends "attendance" as JSON string or we parse entries.
-
-    // Revised approach:
-    // content of 'attendance' field will be JSON string: { [studentId]: boolean }
     const attendanceMapStr = formData.get("attendanceMap") as string;
+    const existingPhotosStr = formData.get("existingPhotos") as string | null;
+    const volunteerIdsStr = formData.get("volunteerIds") as string | null;
 
     if (!lessonId || !attendanceMapStr) {
         return { message: "Invalid data", error: true };
     }
 
     const attendanceMap = JSON.parse(attendanceMapStr) as Record<string, boolean>;
+    const existingPhotos: string[] = existingPhotosStr ? JSON.parse(existingPhotosStr) : [];
+    const volunteerIds: string[] = volunteerIdsStr ? JSON.parse(volunteerIdsStr) : [];
 
     try {
-        // 1. Upload Photos
-        const photos: string[] = [];
+        // 1. Upload new photos
+        const newPhotos: string[] = [];
         const files = formData.getAll("photos") as File[];
 
         for (const file of files) {
             if (file.size > 0 && file.name !== "undefined") {
                 const url = await uploadImage(file);
-                photos.push(url);
+                newPhotos.push(url);
             }
         }
+
+        const photos = [...existingPhotos, ...newPhotos];
 
         // 2. Prepare Attendance Array
         const attendance = Object.entries(attendanceMap).map(([studentId, present]) => ({
@@ -50,6 +49,7 @@ export async function saveAttendance(prevState: any, formData: FormData) {
                 $set: {
                     attendance,
                     photos,
+                    volunteerIds,
                     status: "completed",
                     reportUpdatedAt: new Date()
                 }
@@ -57,9 +57,9 @@ export async function saveAttendance(prevState: any, formData: FormData) {
         );
 
         revalidatePath("/");
-        return { message: "Отчет успешно сохранен", error: false }; // "Report saved successfully" localized
+        return { message: "Отчет успешно сохранен", error: false };
     } catch (e) {
         console.error(e);
-        return { message: "Ошибка при сохранении", error: true }; // "Error saving" local
+        return { message: "Ошибка при сохранении", error: true };
     }
 }

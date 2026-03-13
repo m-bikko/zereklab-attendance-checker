@@ -10,6 +10,7 @@ export function middleware(request: NextRequest) {
         if (authRole === 'admin') return NextResponse.redirect(new URL('/admin', request.url));
         if (authRole === 'parent') return NextResponse.redirect(new URL('/parent', request.url));
         if (authRole === 'teacher') return NextResponse.redirect(new URL('/teacher', request.url));
+        if (authRole === 'volunteer') return NextResponse.redirect(new URL('/volunteer', request.url));
         return NextResponse.next();
     }
 
@@ -34,11 +35,19 @@ export function middleware(request: NextRequest) {
         }
     }
 
+    // 5. Volunteer Protection
+    if (pathname.startsWith('/volunteer')) {
+        if (authRole !== 'volunteer') {
+            return NextResponse.redirect(new URL('/login', request.url));
+        }
+    }
+
     // 5. Root Redirect
     if (pathname === '/') {
         if (authRole === 'admin') return NextResponse.redirect(new URL('/admin', request.url));
         if (authRole === 'parent') return NextResponse.redirect(new URL('/parent', request.url));
         if (authRole === 'teacher') return NextResponse.redirect(new URL('/teacher', request.url));
+        if (authRole === 'volunteer') return NextResponse.redirect(new URL('/volunteer', request.url));
         return NextResponse.redirect(new URL('/login', request.url));
     }
 
@@ -46,5 +55,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/admin/:path*', '/parent/:path*', '/teacher/:path*', '/', '/login'],
+    matcher: ['/admin/:path*', '/parent/:path*', '/teacher/:path*', '/volunteer/:path*', '/', '/login'],
 };

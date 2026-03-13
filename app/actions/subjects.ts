@@ -15,6 +15,7 @@ export interface Subject {
     name: string;
     teacherId: string;
     studentIds: string[];
+    volunteerIds: string[];
     schedule: ScheduleRule[];
     periodicityEndDate: Date;
     startDate: Date;
@@ -26,6 +27,7 @@ export interface Lesson {
     subjectId: string;
     teacherId: string;
     studentIds: string[];
+    volunteerIds: string[];
     startTime: Date;
     endTime: Date;
     status: "scheduled" | "completed" | "cancelled";
@@ -41,6 +43,7 @@ export async function createSubject(prevState: any, formData: FormData) {
     // Parse complex JSON fields
     const studentIds = JSON.parse(rawData.studentIds as string) as string[];
     const schedule = JSON.parse(rawData.schedule as string) as ScheduleRule[];
+    const volunteerIds: string[] = rawData.volunteerIds ? JSON.parse(rawData.volunteerIds as string) : [];
 
     if (!name || !teacherId || studentIds.length === 0 || schedule.length === 0 || !periodicityEndDateStr || !startDateStr) {
         return { message: "All fields are required", error: true };
@@ -62,6 +65,7 @@ export async function createSubject(prevState: any, formData: FormData) {
             name,
             teacherId,
             studentIds,
+            volunteerIds,
             schedule,
             startDate,
             periodicityEndDate,
@@ -105,6 +109,7 @@ export async function createSubject(prevState: any, formData: FormData) {
                     subjectId,
                     teacherId,
                     studentIds,
+                    volunteerIds,
                     startTime: lessonStart,
                     endTime: lessonEnd,
                     status: "scheduled",
@@ -189,6 +194,7 @@ export async function updateSubject(id: string, prevState: any, formData: FormDa
     // AND Update FUTURE lessons with new teacher/students.
 
     const studentIds = JSON.parse(rawData.studentIds as string) as string[];
+    const volunteerIds: string[] = rawData.volunteerIds ? JSON.parse(rawData.volunteerIds as string) : [];
 
     try {
         const client = await clientPromise;
@@ -201,7 +207,8 @@ export async function updateSubject(id: string, prevState: any, formData: FormDa
                 $set: {
                     name,
                     teacherId,
-                    studentIds
+                    studentIds,
+                    volunteerIds
                 }
             }
         );
@@ -217,7 +224,8 @@ export async function updateSubject(id: string, prevState: any, formData: FormDa
             {
                 $set: {
                     teacherId,
-                    studentIds
+                    studentIds,
+                    volunteerIds
                 }
             }
         );

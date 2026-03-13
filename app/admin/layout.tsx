@@ -1,18 +1,11 @@
-"use client";
-
 import { MobileNav } from "@/components/MobileNav";
 import { Sidebar } from "@/components/Sidebar";
-import { Button } from "@/components/ui/button";
-import { logout } from "@/app/actions/auth";
-
 
 export default function AdminLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    // MobileNav is safe here because this layout only wraps /admin pages, 
-    // and /login is at root.
     return (
         <div className="min-h-screen bg-gray-50/50">
             <Sidebar />

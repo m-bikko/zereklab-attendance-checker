@@ -44,6 +44,18 @@ export async function login(prevState: any, formData: FormData) {
         return { message: "Success", error: false, redirectUrl: "/teacher" };
     }
 
+    // 4. Check Volunteer Logic (Database)
+    const volunteer = await db.collection("volunteers").findOne({
+        phone: cleanLogin
+    });
+
+    if (volunteer && volunteer.password === password) {
+        const cookieStore = await cookies();
+        cookieStore.set("auth_role", "volunteer", { httpOnly: true, path: "/" });
+        cookieStore.set("auth_id", volunteer._id.toString(), { httpOnly: true, path: "/" });
+        return { message: "Success", error: false, redirectUrl: "/volunteer" };
+    }
+
     return { message: "Неверный логин или пароль", error: true };
 }
 

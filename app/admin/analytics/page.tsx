@@ -4,6 +4,7 @@ import { getStudents } from "@/app/actions/students";
 import OverviewTab from "./_components/OverviewTab";
 import TeachersTab from "./_components/TeachersTab";
 import StudentsTab from "./_components/StudentsTab";
+import VolunteersTab from "./_components/VolunteersTab";
 
 export default async function AnalyticsPage() {
     const generalStats = await getGeneralStats();
@@ -20,6 +21,7 @@ export default async function AnalyticsPage() {
                     <TabsTrigger value="overview">Обзор</TabsTrigger>
                     <TabsTrigger value="teachers">Учителя</TabsTrigger>
                     <TabsTrigger value="students">Студенты</TabsTrigger>
+                    <TabsTrigger value="volunteers">Волонтеры</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-4">
@@ -30,6 +32,9 @@ export default async function AnalyticsPage() {
                 </TabsContent>
                 <TabsContent value="students" className="space-y-4">
                     <StudentsTab allStudents={students} />
+                </TabsContent>
+                <TabsContent value="volunteers" className="space-y-4">
+                    <VolunteersTab />
                 </TabsContent>
             </Tabs>
         </div>
