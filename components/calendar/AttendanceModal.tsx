@@ -15,6 +15,13 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Check, X, Camera } from "lucide-react";
 
@@ -36,6 +43,7 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [attendanceMap, setAttendanceMap] = useState<Record<string, boolean>>({});
+    const [gradeMap, setGradeMap] = useState<Record<string, number>>({});
     const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
     const [selectedVolunteerIds, setSelectedVolunteerIds] = useState<string[]>([]);
 
@@ -50,15 +58,19 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
         if (lesson) {
             if (lesson.attendance && lesson.attendance.length > 0) {
                 const map: Record<string, boolean> = {};
-                lesson.attendance.forEach((a: any) => {
+                const gMap: Record<string, number> = {};
+                lesson.attendance.forEach((a: { studentId: string; present: boolean; grade?: number }) => {
                     map[a.studentId] = a.present;
+                    gMap[a.studentId] = a.grade ?? 0;
                 });
                 setAttendanceMap(map);
+                setGradeMap(gMap);
                 setExistingPhotos(lesson.photos || []);
                 setSelectedVolunteerIds(lesson.volunteerIds || []);
                 setIsEditing(false);
             } else {
                 setAttendanceMap({});
+                setGradeMap({});
                 setExistingPhotos([]);
                 setSelectedVolunteerIds(lesson.volunteerIds || []);
                 setIsEditing(true);
@@ -90,10 +102,13 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
     const enrolledStudents = students.filter(s => lesson.studentIds.includes(s._id));
 
     const togglePresence = (studentId: string) => {
-        setAttendanceMap(prev => ({
-            ...prev,
-            [studentId]: !prev[studentId]
-        }));
+        setAttendanceMap(prev => {
+            const newPresent = !prev[studentId];
+            if (!newPresent) {
+                setGradeMap(g => ({ ...g, [studentId]: 0 }));
+            }
+            return { ...prev, [studentId]: newPresent };
+        });
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,16 +184,27 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
                             )}
 
                             <ScrollArea className="h-[200px] border rounded p-2">
-                                {enrolledStudents.map(student => (
-                                    <div key={student._id} className="flex justify-between items-center py-2 border-b last:border-0">
-                                        <span>{student.fullName}</span>
-                                        {attendanceMap[student._id] ? (
-                                            <span className="flex items-center text-green-600 text-xs"><Check className="w-4 h-4 mr-1" /> Был(а)</span>
-                                        ) : (
-                                            <span className="flex items-center text-red-500 text-xs"><X className="w-4 h-4 mr-1" /> Нет</span>
-                                        )}
-                                    </div>
-                                ))}
+                                {enrolledStudents.map(student => {
+                                    const record = lesson.attendance?.find((a: { studentId: string }) => a.studentId === student._id);
+                                    const grade = record?.grade as number | undefined;
+                                    return (
+                                        <div key={student._id} className="flex justify-between items-center py-2 border-b last:border-0">
+                                            <span>{student.fullName}</span>
+                                            <div className="flex items-center gap-2">
+                                                {grade !== undefined && grade !== null && (
+                                                    <span className="text-xs font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                                                        {grade}/10
+                                                    </span>
+                                                )}
+                                                {attendanceMap[student._id] ? (
+                                                    <span className="flex items-center text-green-600 text-xs"><Check className="w-4 h-4 mr-1" /> Был(а)</span>
+                                                ) : (
+                                                    <span className="flex items-center text-red-500 text-xs"><X className="w-4 h-4 mr-1" /> Нет</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </ScrollArea>
 
                             <Button className="w-full" onClick={handleEdit}>Изменить отчет</Button>
@@ -198,19 +224,35 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
                         }} className="space-y-4">
                             <input type="hidden" name="lessonId" value={lesson._id} />
                             <input type="hidden" name="attendanceMap" value={JSON.stringify(attendanceMap)} />
+                            <input type="hidden" name="gradeMap" value={JSON.stringify(gradeMap)} />
 
                             <Label>Список студентов</Label>
                             <ScrollArea className="h-[220px] border rounded p-2">
                                 {enrolledStudents.map(student => (
                                     <div key={student._id}
-                                        className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer"
-                                        onClick={() => togglePresence(student._id)}
+                                        className="flex items-center justify-between p-2 hover:bg-muted rounded gap-2"
                                     >
-                                        <span className="font-medium">{student.fullName}</span>
-                                        <div className={
-                                            `w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${attendanceMap[student._id] ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
-                                            }`
-                                        }>
+                                        <span className="font-medium flex-1 truncate">{student.fullName}</span>
+                                        <Select
+                                            value={String(gradeMap[student._id] ?? 0)}
+                                            onValueChange={(val) => setGradeMap(prev => ({ ...prev, [student._id]: Number(val) }))}
+                                            disabled={!attendanceMap[student._id]}
+                                        >
+                                            <SelectTrigger className="w-16 h-8 text-xs">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {Array.from({ length: 11 }, (_, i) => (
+                                                    <SelectItem key={i} value={String(i)}>{i}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <div
+                                            className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+                                                attendanceMap[student._id] ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
+                                            }`}
+                                            onClick={() => togglePresence(student._id)}
+                                        >
                                             {attendanceMap[student._id] && <Check className="w-4 h-4" />}
                                         </div>
                                     </div>

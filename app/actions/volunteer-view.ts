@@ -12,6 +12,7 @@ import {
 interface AttendanceRecord {
     studentId: string;
     present: boolean;
+    grade?: number;
 }
 
 export interface VolunteerLesson {

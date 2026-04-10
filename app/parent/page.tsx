@@ -144,16 +144,20 @@ export default function ParentDashboard() {
 
                                                         <div className="flex flex-wrap gap-1 mt-1">
                                                             {myStudentIds.map((sid: string, idx: number) => {
-                                                                const record = attendance.find((a: any) => a.studentId === sid);
+                                                                const record = attendance.find((a: { studentId: string; present: boolean; grade?: number }) => a.studentId === sid);
                                                                 const status = record ? record.present : null;
+                                                                const grade = record?.grade;
                                                                 if (status === null) return null;
                                                                 return (
                                                                     <span key={idx} className={cn(
-                                                                        "px-1 rounded text-[9px] font-bold flex items-center",
+                                                                        "px-1 rounded text-[9px] font-bold flex items-center gap-0.5",
                                                                         status ? "text-green-700 bg-green-100" : "text-red-700 bg-red-100"
                                                                     )}>
-                                                                        {status ? <Check className="w-3 h-3 mr-0.5" /> : <X className="w-3 h-3 mr-0.5" />}
+                                                                        {status ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
                                                                         {status ? "Был" : "Н/Б"}
+                                                                        {grade !== undefined && grade !== null && (
+                                                                            <span className="ml-0.5 text-blue-700 bg-blue-50 px-0.5 rounded">{grade}</span>
+                                                                        )}
                                                                     </span>
                                                                 );
                                                             })}

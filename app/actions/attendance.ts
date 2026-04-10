@@ -8,6 +8,7 @@ import { ObjectId } from "mongodb";
 export async function saveAttendance(prevState: { message: string; error: boolean }, formData: FormData) {
     const lessonId = formData.get("lessonId") as string;
     const attendanceMapStr = formData.get("attendanceMap") as string;
+    const gradeMapStr = formData.get("gradeMap") as string | null;
     const existingPhotosStr = formData.get("existingPhotos") as string | null;
     const volunteerIdsStr = formData.get("volunteerIds") as string | null;
 
@@ -16,6 +17,7 @@ export async function saveAttendance(prevState: { message: string; error: boolea
     }
 
     const attendanceMap = JSON.parse(attendanceMapStr) as Record<string, boolean>;
+    const gradeMap: Record<string, number> = gradeMapStr ? JSON.parse(gradeMapStr) : {};
     const existingPhotos: string[] = existingPhotosStr ? JSON.parse(existingPhotosStr) : [];
     const volunteerIds: string[] = volunteerIdsStr ? JSON.parse(volunteerIdsStr) : [];
 
@@ -36,7 +38,8 @@ export async function saveAttendance(prevState: { message: string; error: boolea
         // 2. Prepare Attendance Array
         const attendance = Object.entries(attendanceMap).map(([studentId, present]) => ({
             studentId,
-            present
+            present,
+            grade: present ? (gradeMap[studentId] ?? 0) : 0
         }));
 
         // 3. Update DB
