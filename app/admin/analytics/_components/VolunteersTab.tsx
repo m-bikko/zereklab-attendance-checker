@@ -69,7 +69,7 @@ export default function VolunteersTab() {
                         <SelectValue placeholder="Выберите волонтера" />
                     </SelectTrigger>
                     <SelectContent>
-                        {volunteers.map((v) => (
+                        {[...volunteers].sort((a, b) => a.fullName.localeCompare(b.fullName, "ru")).map((v) => (
                             <SelectItem key={v._id} value={v._id!}>
                                 {v.fullName}
                             </SelectItem>

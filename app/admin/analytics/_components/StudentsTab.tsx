@@ -49,7 +49,7 @@ export default function StudentsTab({ allStudents }: StudentsTabProps) {
                             <SelectValue placeholder="Выберите студента" />
                         </SelectTrigger>
                         <SelectContent>
-                            {allStudents.map((student) => (
+                            {[...allStudents].sort((a, b) => a.fullName.localeCompare(b.fullName, "ru")).map((student) => (
                                 <SelectItem key={student._id} value={student._id!}>
                                     {student.fullName}
                                 </SelectItem>
