@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Users, GraduationCap, BookOpen, UserCircle, BarChart, LogOut, UserCheck, Heart } from "lucide-react";
+import { Calendar, Users, GraduationCap, BookOpen, UserCircle, BarChart, LogOut, UserCheck, Heart, LineChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/app/actions/auth";
@@ -18,6 +18,7 @@ export function Sidebar() {
         { href: "/admin/parents", label: "Родители", icon: UserCircle },
         { href: "/admin/homeroom-teachers", label: "Класс. руководители", icon: UserCheck },
         { href: "/admin/volunteers", label: "Волонтеры", icon: Heart },
+        { href: "/admin/analysts", label: "Аналитики", icon: LineChart },
         { href: "/admin/analytics", label: "Аналитика", icon: BarChart },
     ];
 

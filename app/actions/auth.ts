@@ -56,6 +56,18 @@ export async function login(prevState: any, formData: FormData) {
         return { message: "Success", error: false, redirectUrl: "/volunteer" };
     }
 
+    // 5. Check Analyst Logic (Database)
+    const analyst = await db.collection("analysts").findOne({
+        phone: cleanLogin
+    });
+
+    if (analyst && analyst.password === password) {
+        const cookieStore = await cookies();
+        cookieStore.set("auth_role", "analyst", { httpOnly: true, path: "/" });
+        cookieStore.set("auth_id", analyst._id.toString(), { httpOnly: true, path: "/" });
+        return { message: "Success", error: false, redirectUrl: "/analyst" };
+    }
+
     return { message: "Неверный логин или пароль", error: true };
 }
 
