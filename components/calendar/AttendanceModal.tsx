@@ -175,8 +175,13 @@ export function AttendanceModal({ lesson, open, onOpenChange, students }: Attend
                                     <Label>Фото отчет:</Label>
                                     <div className="flex gap-2 overflow-x-auto py-2">
                                         {lesson.photos.map((url: string, idx: number) => (
-                                            <div key={idx} className="relative group">
-                                                <img src={url} alt="Class" className="h-24 w-24 object-cover rounded shadow" />
+                                            <div key={idx} className="relative group shrink-0">
+                                                <img
+                                                    src={url}
+                                                    alt="Class"
+                                                    className="h-24 w-24 object-cover rounded shadow cursor-pointer hover:opacity-80 transition-opacity"
+                                                    onClick={() => setZoomedPhoto(url)}
+                                                />
                                             </div>
                                         ))}
                                     </div>
